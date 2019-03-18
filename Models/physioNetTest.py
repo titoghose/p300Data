@@ -122,7 +122,8 @@ def extractPhysioNet2(file):
 
     raw.filter(0.1, 20, verbose=False)
     raw.resample(250, npad="auto", verbose=False)
-    raw = raw.pick_types(eeg=True, meg=False, verbose=False)
+    # raw = raw.pick_types(eeg=True, meg=False, verbose=False)
+    raw = raw.pick_channels(ch_names=['Fz', 'Cz', 'P3', 'Pz', 'P4', 'PO3', 'PO4', 'Oz'])
 
     target = stim[0][4]
     X = []
@@ -147,35 +148,83 @@ def extractPhysioNet2(file):
 
 
 
+num_subjects = 12
+# data = {"Train": {"X": np.array([]), "y": np.array([])}, "Test": {"X": np.array([]), "y": np.array([])}, "Validate": {"X": np.array([]), "y": np.array([])}}
+# folders = {"Train":['s01', 's02', 's03', 's04', 's06', 's07', 's09', 's10', 's11', 's12'], "Validate":['s08'], "Test":['s05']}
+# # folders = {"Train":['s01']}
 
-data = {"Train": {"X": np.array([]), "y": np.array([])}, "Test": {"X": np.array([]), "y": np.array([])}}
+# for fold_type in folders:
+#     for f in folders[fold_type]:
+#         for file in os.listdir("/home/upamanyu/Documents/NTU_Creton/Data/physionet_erpbci/" + f):
+#             if not file.endswith(".edf"):
+#                 continue
+#             print("\n\n")
+#             print("/home/upamanyu/Documents/NTU_Creton/Data/physionet_erpbci/" + f + "/" + file)
 
-folders = {"Train":['s01', 's02', 's03', 's04', 's05', 's06', 's07', 's08', 's09', 's10', 's11'], "Test":['s12']}
+#             temp_x, temp_y = extractPhysioNet2("/home/upamanyu/Documents/NTU_Creton/Data/physionet_erpbci/" + f + "/" + file)
+#             if data[fold_type]["X"].shape[0] == 0:
+#                 data[fold_type]["X"] = temp_x
+#             else:
+#                 data[fold_type]["X"] = np.vstack((data[fold_type]["X"], temp_x))    
+            
+#             data[fold_type]["y"] = np.hstack((data[fold_type]["y"], temp_y))
+            
+#             print("X:", np.array(data[fold_type]["X"]).shape)
+#             print("y:", data[fold_type]["y"].shape)
 
-for fold_type in folders:
-    for f in folders[fold_type]:
-        for file in os.listdir("/home/upamanyu/Documents/NTU_Creton/Data/physionet_erpbci/" + f):
-            if not file.endswith(".edf"):
-                continue
-            print("\n\n")
-            print("/home/upamanyu/Documents/NTU_Creton/Data/physionet_erpbci/" + f + "/" + file)
 
-            temp_x, temp_y = extractPhysioNet2("/home/upamanyu/Documents/NTU_Creton/Data/physionet_erpbci/" + f + "/" + file)
-            if data[fold_type]["X"].shape[0] == 0:
-                data[fold_type]["X"] = temp_x
+#         with open("physionet.p", "ab") as m:
+#             print("Dumped Subject : ", f)
+#             pickle.dump(data, m)
+
+#         del(data)
+#         data = {"Train": {"X": np.array([]), "y": np.array([])}, "Test": {"X": np.array([]), "y": np.array([])}, "Validate": {"X": np.array([]), "y": np.array([])}}
+
+X_train = np.array([])
+X_test = np.array([])
+X_val = np.array([])
+y_train = np.array([])
+y_test = np.array([])
+y_val = np.array([])
+
+with open("physionet.p", "rb") as f:
+    for i in range(num_subjects):
+        data = pickle.load(f)
+
+        if len(data["Train"]["y"]) != 0:
+            X_tr = data["Train"]["X"]
+            y_tr = data["Train"]["y"]
+            a, b = X_tr.shape[1], X_tr.shape[2]
+            X_tr = np.reshape(X_tr, (-1, X_tr.shape[1] * X_tr.shape[2]))
+            smote = SMOTE(random_state=42)
+            X_tr, y_tr = smote.fit_sample(X_tr, y_tr)
+            X_tr = np.reshape(X_tr, (-1, a, b))
+
+            if X_train.shape[0] == 0:
+                X_train = X_tr
+                y_train = y_tr
             else:
-                data[fold_type]["X"] = np.vstack((data[fold_type]["X"], temp_x))    
-            
-            data[fold_type]["y"] = np.hstack((data[fold_type]["y"], temp_y))
-            
-            print("X:", np.array(data[fold_type]["X"]).shape)
-            print("y:", data[fold_type]["y"].shape)
+                X_train = np.vstack((X_train, X_tr))
+                y_train = np.hstack((y_train, y_tr))
 
+        if len(data["Test"]["y"]) != 0:
+            if X_test.shape[0] == 0:
+                X_test = data["Test"]["X"]
+                y_test = data["Test"]["y"]
+            else:
+                X_test = np.vstack((X_train, data["Test"]["X"]))
+                y_test = np.hstack((y_test, data["Test"]["y"]))
+        
+        if len(data["Validate"]["y"]) != 0:
+            if X_val.shape[0] == 0:
+                X_val = data["Validate"]["X"]
+                y_val = data["Validate"]["y"]
+            else:
+                X_val = np.vstack((X_train, data["Validate"]["X"]))
+                y_val = np.hstack((y_test, data["Validate"]["y"]))
 
-        with open("physionetCNNData.pickle", "ab") as m:
-            print("Dumped Subject : ", f)
-            pickle.dump(data, m)
+        print(X_train.shape, y_train.shape, X_test.shape, y_test.shape, X_val.shape, y_val.shape)
 
-        del(data)
-        data = {"Train": {"X": np.array([]), "y": np.array([])}, "Test": {"X": np.array([]), "y": np.array([])}}
+with open("physionetData.p", "wb") as f:
+    pickle.dump((X_train, X_test, X_val, y_train, y_test, y_val), f)
 

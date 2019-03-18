@@ -10,36 +10,6 @@ import os
 
 from imblearn.over_sampling import ADASYN, SMOTE
 
-
-def f1_metric(y_true, y_pred):
-    return f1_score(y_true, y_pred)
-
-
-def precision_metric(y_true, y_pred):
-    return precision_score(y_true, y_pred)
-
-
-def recall_metric(y_true, y_pred):
-    return recall_score(y_true, y_pred)
-
-
-def createModel(num_channels, num_timesteps):
-    model = Sequential()
-    model.add(Input(shape=(None, num_timesteps, num_channels), name='input'))
-    model.add(BatchNormalization())
-    model.add(Conv1D(filters=16, kernel_size=(1, num_channels), padding='valid'))
-    model.add(Conv1D(filters=16, kernel_size=(num_timesteps/8, 1), padding='valid', activation='relu'))
-    model.add(BatchNormalization())
-    model.add(Flatten()) 
-    model.add(Dense(units=128, activation='tanh'))
-    model.add(Dropout(rate=0.8))
-    model.add(Dense(units=128, activation='tanh'))
-    model.add(Dropout(rate=0.8))
-    model.add(Dense(units=1, activation='sigmoid'))
-
-    return model
-
-
 def createData(f_name, num_subjects=12):
 
     if os.path.isfile(f_name):

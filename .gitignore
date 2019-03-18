@@ -2,3 +2,9 @@
 *.p
 *.zip
 *.tar.xz
+*.h5py
+*.hdf5
+*.h5py
+Graph/
+Weights/
+Data/
